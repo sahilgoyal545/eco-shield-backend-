@@ -15,7 +15,7 @@ global login_id
 global hashed
 ph = PasswordHasher()
 
-@app.route('/Contact', methods=['POST'])#useke hisb se 
+@app.route('/signup', methods=['POST'])#useke hisb se 
 def singup():
     data = request.get_json()
     name = data['name']

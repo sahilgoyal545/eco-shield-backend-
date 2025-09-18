@@ -1,10 +1,11 @@
-from flask import request, Flask, jsonify
-import sqlite3, os
-from argon2 import PasswordHasher 
+from flask import Flask, request, jsonify
 from flask_cors import CORS
+import sqlite3
+from argon2 import PasswordHasher
 
 app = Flask(__name__)
 
+# Allow multiple frontend origins
 CORS(app, resources={
     r"/*": {
         "origins": [
@@ -14,71 +15,94 @@ CORS(app, resources={
     }
 })
 
-global login_id
-global hashed
 ph = PasswordHasher()
 
-@app.route('/') #home 
-def home():
-    return jsonify({"message": "Welcome to eco shield"}),200
+# --- Create users table if not exists ---
+def init_db():
+    eco = sqlite3.connect("eco.db")
+    cursor = eco.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS User(
+            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            contact TEXT,
+            email TEXT UNIQUE,
+            password TEXT,
+            dob TEXT,
+            is_active BOOLEAN DEFAULT 1
+        )
+    """)
+    eco.commit()
+    eco.close()
 
-@app.route('/signup', methods=['POST'])#useke hisb se 
-def singup():
+init_db()
+
+# --- Signup Route ---
+@app.route('/signup', methods=['POST'])
+def signup():
     data = request.get_json()
     name = data['name']
     contact = data['contact']
     email = data['email']
-    password = ph.hash(data['password'])
     dob = data['dob']
+    hashed_password = ph.hash(data['password'])
 
-    
     eco = sqlite3.connect("eco.db")
     cursor = eco.cursor()
-    
-    if cursor.execute("SELECT 1 FROM User WHERE email = ?", (email,)).fetchall() and cursor.execute("SELECT 1 FROM User WHERE contact = ?" , (contact)).fetchall():
-        eco.commit() 
-        eco.close() 
-        return jsonify({"message": "email exist try another email"}),409
- 
-    cursor.execute("""CREATE TABLE IF NOT EXISTS 
-                   User(user_id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                   name VARCHAR(15), 
-                   contact VARCHAR(15),
-                   email VARCHAR(50), password VARCHAR(255),
-                   dob VARCHAR(20), is_active BOOLEAN DEFAULT 1)
-                   created_at timestamp default current_timestamp""")
-    
-    cursor.execute("INSERT INTO User(name, contact, email, password, dob) VALUES (?, ?, ?, ?, ?)",(name, contact, email, password, dob)) 
-    
-    eco.commit() 
-    eco.close()
+    try:
+        cursor.execute(
+            "INSERT INTO User(name, contact, email, password, dob) VALUES (?, ?, ?, ?, ?)",
+            (name, contact, email, hashed_password, dob)
+        )
+        eco.commit()
+        return jsonify({"message": "Signup successful"}), 201
+    except sqlite3.IntegrityError:
 
-    return jsonify({"message": "Signup successful"}), 201
+        return jsonify({"error": "Email already registered"}), 409
+    finally:
+        eco.close()
 
-    
-@app.route('/login',methods=['POST'])#useke hisb se 
+# --- Login Route ---
+@app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
     email = data['email']
     password = data['password']
-    
+
     eco = sqlite3.connect("eco.db")
-    cursor = eco.cursor() 
-    
-    cursor.execute("SELECT password FROM User WHERE email = ?", (email,))
+    cursor = eco.cursor()
+    cursor.execute("SELECT user_id, password FROM User WHERE email = ?", (email,))
     row = cursor.fetchone()
-    
-    eco.commit()
     eco.close()
-    
+
     if not row:
-        return jsonify({"message": "Email not found"}), 404
-    elif ph.verify(row[0], password):
-        eco = sqlite3.connect("eco.db")
-        cursor = eco.cursor()
-        login_id = cursor.execute("SELECT user_id FROM User WHERE email = ?", email)
-        eco.commit()
-        eco.close()
-        return jsonify({"massage": "Login succesfully!"}), 200
-    else:
-        return jsonify({"message": "Password incorrect"}), 404
+        return jsonify({"error": "Email not found"}), 404
+
+    user_id, stored_hash = row
+    try:
+        if ph.verify(stored_hash, password):
+            return jsonify({"message": "Login successful", "user_id": user_id}), 200
+    except:
+        pass
+
+    return jsonify({"error": "Password incorrect"}), 401
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    eco = sqlite3.connect("eco.db")
+    cursor = eco.cursor()
+    cursor.execute("SELECT name, email, contact FROM User")
+    rows = cursor.fetchall()
+    eco.close()
+
+    users = []
+    for row in rows:
+        users.append({
+            "name": row[0],
+            "email": row[1],
+            "contact": row[2]
+        })
+    return jsonify(users), 200
+
+if __name__ == "__main__":
+    app.run(debug=True)

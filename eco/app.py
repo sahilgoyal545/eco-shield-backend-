@@ -5,15 +5,22 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 
-# Allow multiple origins (e.g., localhost for development and production domain)
-CORS(app, origins=[
-    "http://localhost:3000",       # Local development (React, etc.)
-    "https://eco-shield-green.web.app/"     # Hosted frontend domain
-])
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "http://localhost:3000",
+            "https://eco-shield-green.web.app"
+        ]
+    }
+})
 
 global login_id
 global hashed
 ph = PasswordHasher()
+
+@app.route('/') #home 
+def home():
+    return jsonify({"message": "Welcome to eco shield"}),200
 
 @app.route('/signup', methods=['POST'])#useke hisb se 
 def singup():
@@ -31,7 +38,7 @@ def singup():
     if cursor.execute("SELECT 1 FROM User WHERE email = ?", (email,)).fetchall() and cursor.execute("SELECT 1 FROM User WHERE contact = ?" , (contact)).fetchall():
         eco.commit() 
         eco.close() 
-        return jsonify("email exist try another email"),409
+        return jsonify({"message": "email exist try another email"}),409
  
     cursor.execute("""CREATE TABLE IF NOT EXISTS 
                    User(user_id INTEGER PRIMARY KEY AUTOINCREMENT, 

@@ -28,7 +28,7 @@ def init_db():
             contact TEXT,
             email TEXT UNIQUE,
             password TEXT,
-            dob TEXT,
+            dob TEXT
         )
     """)
     eco.commit()

@@ -19,7 +19,7 @@ ph = PasswordHasher()
 
 # --- Create users table if not exists ---
 def init_db():
-    eco = sqlite3.connect("eco.db")
+    eco = sqlite3.connect("file.db")
     cursor = eco.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS User(
@@ -29,7 +29,6 @@ def init_db():
             email TEXT UNIQUE,
             password TEXT,
             dob TEXT,
-            is_active BOOLEAN DEFAULT 1
         )
     """)
     eco.commit()
@@ -47,7 +46,7 @@ def signup():
     dob = data['dob']
     hashed_password = ph.hash(data['password'])
 
-    eco = sqlite3.connect("eco.db")
+    eco = sqlite3.connect("file.db")
     cursor = eco.cursor()
     try:
         cursor.execute(
@@ -69,7 +68,7 @@ def login():
     email = data['email']
     password = data['password']
 
-    eco = sqlite3.connect("eco.db")
+    eco = sqlite3.connect("file.db")
     cursor = eco.cursor()
     cursor.execute("SELECT user_id, password FROM User WHERE email = ?", (email,))
     row = cursor.fetchone()
@@ -87,9 +86,10 @@ def login():
 
     return jsonify({"error": "Password incorrect"}), 401
 
+# --- Dashboard Route ---
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    eco = sqlite3.connect("eco.db")
+    eco = sqlite3.connect("file.db")
     cursor = eco.cursor()
     cursor.execute("SELECT name, email, contact FROM User")
     rows = cursor.fetchall()
@@ -103,6 +103,17 @@ def dashboard():
             "contact": row[2]
         })
     return jsonify(users), 200
+
+# --- API Endpoints for User Management ---
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    eco = sqlite3.connect("file.db")
+    cursor = eco.cursor()
+    cursor.execute("DELETE FROM User WHERE user_id = ?", (user_id,))
+    eco.commit()
+    eco.close()
+    return jsonify({"message": f"User {user_id} deleted"}),200
+
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -105,15 +105,17 @@ def dashboard():
     return jsonify(users), 200
 
 # --- API Endpoints for User Management ---
-@app.route('/api/users/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
+@app.route('/api/users/<string:email>', methods=['DELETE'])
+def delete_user_by_email(email):
     eco = sqlite3.connect("file.db")
     cursor = eco.cursor()
-    cursor.execute("DELETE FROM User WHERE user_id = ?", (user_id,))
+    cursor.execute("DELETE FROM User WHERE email = ?", (email,))
     eco.commit()
     eco.close()
-    return jsonify({"message": f"User {user_id} deleted"}),200
+    return jsonify({"message": f"User {email} deleted"}), 200
+
 
 
 if __name__ == "__main__":
+
     app.run(debug=True)

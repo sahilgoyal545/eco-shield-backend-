@@ -4,11 +4,7 @@ import sqlite3
 from argon2 import PasswordHasher
 import os
 
-port = int(os.environ.get("PORT", 5000))
-
 app = Flask(__name__)
-
-app.run(host="0.0.0.0", port=port)
 
 # Allow multiple frontend origins
 CORS(app, resources={
@@ -40,6 +36,11 @@ def init_db():
     eco.close()
 
 init_db()
+
+# --- Home Route ---
+@app.route('/')
+def home():
+    return "Welcome to Eco Shield Backend!"
 
 # --- Signup Route ---
 @app.route('/signup', methods=['POST'])
@@ -122,5 +123,5 @@ def delete_user_by_email(email):
 
 
 if __name__ == "__main__":
-
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

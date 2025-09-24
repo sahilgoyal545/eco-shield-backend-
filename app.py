@@ -2,8 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
 from argon2 import PasswordHasher
+import os
+
+port = int(os.environ.get("PORT", 5000))
 
 app = Flask(__name__)
+
+app.run(host="0.0.0.0", port=port)
 
 # Allow multiple frontend origins
 CORS(app, resources={

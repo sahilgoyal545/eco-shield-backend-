@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from argon2 import PasswordHasher
 import os
 
@@ -18,13 +19,19 @@ CORS(app, resources={
 
 ph = PasswordHasher()
 
+# --- Connect to PostgreSQL ---
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
+
 # --- Create users table if not exists ---
 def init_db():
-    eco = sqlite3.connect("file.db")
-    cursor = eco.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS User(
-            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users(
+            user_id SERIAL PRIMARY KEY,
             name TEXT,
             contact TEXT,
             email TEXT UNIQUE,
@@ -32,15 +39,16 @@ def init_db():
             dob TEXT
         )
     """)
-    eco.commit()
-    eco.close()
+    conn.commit()
+    cur.close()
+    conn.close()
 
 init_db()
 
 # --- Home Route ---
 @app.route('/')
 def home():
-    return "Welcome to Eco Shield Backend!"
+    return "Welcome to Eco Shield Backend with PostgreSQL!"
 
 # --- Signup Route ---
 @app.route('/signup', methods=['POST'])
@@ -52,20 +60,21 @@ def signup():
     dob = data['dob']
     hashed_password = ph.hash(data['password'])
 
-    eco = sqlite3.connect("file.db")
-    cursor = eco.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO User(name, contact, email, password, dob) VALUES (?, ?, ?, ?, ?)",
+        cur.execute(
+            "INSERT INTO users (name, contact, email, password, dob) VALUES (%s, %s, %s, %s, %s)",
             (name, contact, email, hashed_password, dob)
         )
-        eco.commit()
+        conn.commit()
         return jsonify({"message": "Signup successful"}), 201
-    except sqlite3.IntegrityError:
-
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
         return jsonify({"error": "Email already registered"}), 409
     finally:
-        eco.close()
+        cur.close()
+        conn.close()
 
 # --- Login Route ---
 @app.route('/login', methods=['POST'])
@@ -74,11 +83,12 @@ def login():
     email = data['email']
     password = data['password']
 
-    eco = sqlite3.connect("file.db")
-    cursor = eco.cursor()
-    cursor.execute("SELECT user_id, password FROM User WHERE email = ?", (email,))
-    row = cursor.fetchone()
-    eco.close()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, password FROM users WHERE email = %s", (email,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
 
     if not row:
         return jsonify({"error": "Email not found"}), 404
@@ -95,11 +105,12 @@ def login():
 # --- Dashboard Route ---
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    eco = sqlite3.connect("file.db")
-    cursor = eco.cursor()
-    cursor.execute("SELECT name, email, contact FROM User")
-    rows = cursor.fetchall()
-    eco.close()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT name, email, contact FROM users")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
 
     users = []
     for row in rows:
@@ -110,54 +121,17 @@ def dashboard():
         })
     return jsonify(users), 200
 
-# --- API Endpoints for User Management ---
+# --- API Endpoint for User Deletion ---
 @app.route('/api/users/<string:email>', methods=['DELETE'])
 def delete_user_by_email(email):
-    eco = sqlite3.connect("file.db")
-    cursor = eco.cursor()
-    cursor.execute("DELETE FROM User WHERE email = ?", (email,))
-    eco.commit()
-    eco.close()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE email = %s", (email,))
+    conn.commit()
+    cur.close()
+    conn.close()
     return jsonify({"message": f"User {email} deleted"}), 200
-
-# Example: You should store your Gemini API key securely as an environment variable
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "API_KEY_HERE")
-GEMINI_API_URL = "https://api.gemini.com/v1/analyze"  # Replace with actual endpoint
-
-def call_gemini_api(imei):
-    """
-    Calls Google Gemini AI API to analyze device by IMEI.
-    Replace with actual API specs when available.
-    """
-    try:
-        payload = {"imei": imei}
-        headers = {
-            "Authorization": f"Bearer {GEMINI_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
-        response.raise_for_status()
-        data = response.json()
-        # Example response: { "isHacked": true/false }
-        return data
-    except Exception as e:
-        print("Gemini API error:", e)
-        # Fallback simulation if API fails
-        import random
-        return {"isHacked": random.random() < 0.3}
-
-@app.route("/api/gemini-analyze", methods=["POST"])
-def gemini_analyze():
-    data = request.get_json()
-    imei = data.get("imei")
-    if not imei:
-        return jsonify({"error": "IMEI is required"}), 400
-
-    gemini_response = call_gemini_api(imei)
-    return jsonify({"isHacked": gemini_response.get("isHacked", False)})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
-

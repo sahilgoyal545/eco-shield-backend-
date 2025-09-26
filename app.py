@@ -121,7 +121,7 @@ def delete_user_by_email(email):
     return jsonify({"message": f"User {email} deleted"}), 200
 
 # Example: You should store your Gemini API key securely as an environment variable
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBMBmIUqt8FRnWsa0vavEkYsexD0awwAEE")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "API_KEY_HERE")
 GEMINI_API_URL = "https://api.gemini.com/v1/analyze"  # Replace with actual endpoint
 
 def call_gemini_api(imei):
@@ -159,4 +159,5 @@ def gemini_analyze():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+
 

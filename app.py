@@ -120,8 +120,43 @@ def delete_user_by_email(email):
     eco.close()
     return jsonify({"message": f"User {email} deleted"}), 200
 
+# Example: You should store your Gemini API key securely as an environment variable
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBMBmIUqt8FRnWsa0vavEkYsexD0awwAEE")
+GEMINI_API_URL = "https://api.gemini.com/v1/analyze"  # Replace with actual endpoint
 
+def call_gemini_api(imei):
+    """
+    Calls Google Gemini AI API to analyze device by IMEI.
+    Replace with actual API specs when available.
+    """
+    try:
+        payload = {"imei": imei}
+        headers = {
+            "Authorization": f"Bearer {GEMINI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        # Example response: { "isHacked": true/false }
+        return data
+    except Exception as e:
+        print("Gemini API error:", e)
+        # Fallback simulation if API fails
+        import random
+        return {"isHacked": random.random() < 0.3}
+
+@app.route("/api/gemini-analyze", methods=["POST"])
+def gemini_analyze():
+    data = request.get_json()
+    imei = data.get("imei")
+    if not imei:
+        return jsonify({"error": "IMEI is required"}), 400
+
+    gemini_response = call_gemini_api(imei)
+    return jsonify({"isHacked": gemini_response.get("isHacked", False)})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+

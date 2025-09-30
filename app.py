@@ -132,6 +132,37 @@ def delete_user_by_email(email):
     conn.close()
     return jsonify({"message": f"User {email} deleted"}), 200
 
+# --- API ENDPOINT for User Update ---
+@app.route('/api/users/<string:email>', methods=['UPDATE PROFILE'])
+def update_user_by_email(email):
+    data = request.get_json()
+    fields = []
+    values = []
+
+    if 'name' in data and data['name']:
+        fields.append("name = %s")
+        values.append(data['name'])
+    if 'contact' in data and data['contact']:
+        fields.append("contact = %s")
+        values.append(data['contact'])
+    if 'dob' in data and data['dob']:
+        fields.append("dob = %s")
+        values.append(data['dob'])
+
+    if not fields:
+        return jsonify({"error": "No fields to update"}), 400
+
+    values.append(email)
+    query = f"UPDATE users SET {', '.join(fields)} WHERE email = %s"
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(query, tuple(values))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": f"User {email} updated"}), 200
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)

@@ -133,8 +133,8 @@ def delete_user_by_email(email):
     return jsonify({"message": f"User {email} deleted"}), 200
 
 # --- API ENDPOINT for User Update ---
-@app.route('/api/users/<string:email>', methods=['UPDATE PROFILE'])
-def update_user_by_email(email):
+@app.route('/api/users/<string:email>', methods=['PATCH'])
+def update(email):
     data = request.get_json()
     fields = []
     values = []

@@ -145,9 +145,10 @@ def update(email):
     if 'contact' in data and data['contact']:
         fields.append("contact = %s")
         values.append(data['contact'])
-    if 'dob' in data and data['dob']:
-        fields.append("dob = %s")
-        values.append(data['dob'])
+    if 'password' in data and data['password']:
+        hashed_password = ph.hash(data['password'])
+        fields.append("password = %s")
+        values.append(hashed_password)
 
     if not fields:
         return jsonify({"error": "No fields to update"}), 400
